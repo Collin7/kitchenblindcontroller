@@ -3,6 +3,7 @@
 #include <ArduinoOTA.h>
 #include <PubSubClient.h>
 #include <ESP8266SSDP.h>
+#include <SimpleTimer.h>
 
 const char* host = "Kitchen Blind Controller";
 const char* ssid = "Morpheus";
@@ -11,8 +12,7 @@ const char* mqtt_user = "CDW-SmartHouse";
 const char* mqtt_pass = "!M0rpheus";
 
 #define mqtt_server "192.168.0.3"
-#define openblind_topic "binds/kitchen/open"
-#define closeblind_topic "blinds/kitchen/close"
+#define operateblind_topic "blinds/kitchen/action"
 
 //This can be used to output the date the code was compiled
 const char compile_date[] = __DATE__ " " __TIME__;
@@ -27,12 +27,14 @@ const int IN_2 = 4; //D2
 
 String strTopic;
 String strPayload;
+bool didPublishState = false;
 
 //Initialize Objects
 WiFiClient espKitchenBlindController;
 PubSubClient client(espKitchenBlindController);
 Bounce  bouncer1  = Bounce();
 Bounce  bouncer2  = Bounce();
+SimpleTimer timer;
 
 void setup() {
   Serial.begin(115200);
@@ -46,10 +48,10 @@ void setup() {
 
   bouncer1.attach(OPEN_BUTTON);
   bouncer2.attach(CLOSE_BUTTON);
-  
+
   bouncer1.interval(5);
   bouncer2.interval(5);
-  
+
   // Set initial rotation direction
   digitalWrite(IN_1, LOW);
   digitalWrite(IN_2, LOW);
@@ -61,6 +63,8 @@ void setup() {
 
   ArduinoOTA.setHostname("Kitchen Blind Controller");
   ArduinoOTA.begin();
+
+  timer.setInterval(90000, stateCheckin); //publish blind state every 1 min
 }
 
 void loop() {
@@ -73,6 +77,7 @@ void loop() {
   ArduinoOTA.handle();
   buttonPressHandler();
   limitSwitchHandler();
+  timer.run();
 }
 
 void buttonPressHandler() {
@@ -94,22 +99,39 @@ void buttonPressHandler() {
 void limitSwitchHandler() {
   //Blind is open
   if (digitalRead(TOP_LIMIT_SWITCH) == LOW) {
-   // Serial.println("Top limit switch pressed");
     stopBlind();
+    if (digitalRead(TOP_LIMIT_SWITCH) == LOW && !didPublishState) {
+      client.publish("blinds/kitchen/state", "OPEN", true);
+      didPublishState = true;
+    }
 
     //Blind is closed
   } else if (digitalRead(BOTTOM_LIMIT_SWITCH) == LOW) {
-    Serial.println("Bottom limit switch pressed");
     stopBlind();
+    if (digitalRead(BOTTOM_LIMIT_SWITCH) == LOW && !didPublishState) {
+      didPublishState = true;
+      client.publish("blinds/kitchen/state", "CLOSED", true);
+    }
+  }
+}
+
+void stateCheckin() {
+  if (digitalRead(TOP_LIMIT_SWITCH) == LOW) {
+    client.publish("blinds/kitchen/state", "OPEN", true);
+  }
+  if (digitalRead(TOP_LIMIT_SWITCH) == HIGH) {
+    client.publish("blinds/kitchen/state", "CLOSED", true);
   }
 }
 
 void openBlind() {
+  didPublishState = false;
   digitalWrite(IN_1, HIGH);
   digitalWrite(IN_2, LOW);
 }
 
 void closeBlind() {
+  didPublishState = false;
   digitalWrite(IN_1, LOW);
   digitalWrite(IN_2, HIGH);
 }
@@ -126,35 +148,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println("Topic " + strTopic);
   String command = String((char*)payload);
   Serial.println("Command " + command);
-  //  if (strTopic == pooltopup_topic) {
-  //
-  //    if (command == "OPEN") {
-  //      digitalWrite(SWIMMING_POOL, LOW);
-  //    } else {
-  //      digitalWrite(SWIMMING_POOL, HIGH);
-  //    }
-  //  }
-  //  else if ( strTopic ==  zone1_topic) {
-  //    if (command == "ON") {
-  //      digitalWrite(ZONE_1, LOW);
-  //    } else {
-  //      digitalWrite(ZONE_1, HIGH);
-  //    }
-  //  }
-  //  else if ( strTopic ==  zone2_topic) {
-  //    if (command == "ON") {
-  //      digitalWrite(ZONE_2, LOW);
-  //    } else {
-  //      digitalWrite(ZONE_2, HIGH);
-  //    }
-  //  }
-  //  else if ( strTopic ==  zone3_topic ) {
-  //    if (command == "ON") {
-  //      digitalWrite(ZONE_3, LOW);
-  //    } else {
-  //      digitalWrite(ZONE_3, HIGH);
-  //    }
-  //  }
+  if (strTopic == operateblind_topic) {
+    if (command == "OPEN") {
+      openBlind();
+      delay(1000); // This delay to to allow the blind to release the limit switch else the low state calls stopmotor before it can start moving
+    } else if (command == "CLOSE") {
+      closeBlind();
+      delay(1000);
+    }
+  }
 }
 
 void setup_wifi() {
@@ -185,7 +187,7 @@ void reconnect() {
   Serial.print("Attempting MQTT connection...");
   if (client.connect(host, mqtt_user, mqtt_pass)) {
     Serial.println("connected");
-    client.subscribe("kitchen/blind/controller/#");
+    client.subscribe("blinds/kitchen/action");
   } else {
     Serial.print("failed, rc=");
     Serial.print(client.state());
