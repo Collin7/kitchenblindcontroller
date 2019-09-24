@@ -18,12 +18,12 @@ const char* mqtt_pass = "!M0rpheus";
 const char compile_date[] = __DATE__ " " __TIME__;
 
 //Define Pins
-const int OPEN_BUTTON = 0; //D3
-const int CLOSE_BUTTON = 2; //D4
-const int TOP_LIMIT_SWITCH = 4; //D2
-const int BOTTOM_LIMIT_SWITCH = 5; //D1
-const int IN_1 = 14; //D5
-const int IN_2 = 12; //D6
+const int CLOSE_BUTTON = 0; //D3
+const int OPEN_BUTTON = 2; //D4
+const int TOP_LIMIT_SWITCH = 14; //D5
+const int BOTTOM_LIMIT_SWITCH = 12; //D6
+const int IN_1 = 5; //D1
+const int IN_2 = 4; //D2
 
 String strTopic;
 String strPayload;
@@ -33,8 +33,6 @@ WiFiClient espKitchenBlindController;
 PubSubClient client(espKitchenBlindController);
 Bounce  bouncer1  = Bounce();
 Bounce  bouncer2  = Bounce();
-Bounce  bouncer3  = Bounce();
-Bounce  bouncer4  = Bounce();
 
 void setup() {
   Serial.begin(115200);
@@ -43,18 +41,14 @@ void setup() {
   pinMode(IN_2, OUTPUT);
   pinMode(OPEN_BUTTON, INPUT);
   pinMode(CLOSE_BUTTON, INPUT);
-  pinMode(TOP_LIMIT_SWITCH, INPUT);
-  pinMode(BOTTOM_LIMIT_SWITCH, INPUT);
+  pinMode(TOP_LIMIT_SWITCH, INPUT_PULLUP);
+  pinMode(BOTTOM_LIMIT_SWITCH, INPUT_PULLUP);
 
   bouncer1.attach(OPEN_BUTTON);
   bouncer2.attach(CLOSE_BUTTON);
-  bouncer3.attach(TOP_LIMIT_SWITCH);
-  bouncer4.attach(BOTTOM_LIMIT_SWITCH);
   
-  bouncer1.interval(10);
-  bouncer2.interval(10);
-  bouncer3.interval(10);
-  bouncer4.interval(10);
+  bouncer1.interval(5);
+  bouncer2.interval(5);
   
   // Set initial rotation direction
   digitalWrite(IN_1, LOW);
@@ -82,33 +76,32 @@ void loop() {
 }
 
 void buttonPressHandler() {
-  if (digitalRead(OPEN_BUTTON) == LOW) {
-    Serial.println("Closing the blind");
-    openBlind();
-  }
+  bouncer1.update();
+  bouncer2.update();
 
-  if (digitalRead(CLOSE_BUTTON) == LOW) {
+  // Get the updated value :
+  int value1 = bouncer1.read();
+  int value2 = bouncer2.read();
+  if (digitalRead(OPEN_BUTTON) == LOW) {
     Serial.println("Opening the blind");
+    openBlind();
+  } else if (digitalRead(CLOSE_BUTTON) == LOW) {
+    Serial.println("Closing the blind");
     closeBlind();
   }
 }
 
 void limitSwitchHandler() {
+  //Blind is open
   if (digitalRead(TOP_LIMIT_SWITCH) == LOW) {
-    Serial.println("Top limit switch pressed");
+   // Serial.println("Top limit switch pressed");
     stopBlind();
-  }
 
-  if (digitalRead(BOTTOM_LIMIT_SWITCH) == LOW) {
+    //Blind is closed
+  } else if (digitalRead(BOTTOM_LIMIT_SWITCH) == LOW) {
     Serial.println("Bottom limit switch pressed");
     stopBlind();
   }
-}
-
-void stopBlind() {
-//  digitalWrite(EN_A, HIGH);
-    digitalWrite(IN_1, LOW);
-    digitalWrite(IN_2, LOW);
 }
 
 void openBlind() {
@@ -121,6 +114,11 @@ void closeBlind() {
   digitalWrite(IN_2, HIGH);
 }
 
+void stopBlind() {
+  digitalWrite(IN_1, LOW);
+  digitalWrite(IN_2, LOW);
+}
+
 void callback(char* topic, byte* payload, unsigned int length) {
   //Handle mqtt messages received by this NodeMCU
   payload[length] = '\0';
@@ -128,35 +126,35 @@ void callback(char* topic, byte* payload, unsigned int length) {
   Serial.println("Topic " + strTopic);
   String command = String((char*)payload);
   Serial.println("Command " + command);
-//  if (strTopic == pooltopup_topic) {
-//
-//    if (command == "OPEN") {
-//      digitalWrite(SWIMMING_POOL, LOW);
-//    } else {
-//      digitalWrite(SWIMMING_POOL, HIGH);
-//    }
-//  }
-//  else if ( strTopic ==  zone1_topic) {
-//    if (command == "ON") {
-//      digitalWrite(ZONE_1, LOW);
-//    } else {
-//      digitalWrite(ZONE_1, HIGH);
-//    }
-//  }
-//  else if ( strTopic ==  zone2_topic) {
-//    if (command == "ON") {
-//      digitalWrite(ZONE_2, LOW);
-//    } else {
-//      digitalWrite(ZONE_2, HIGH);
-//    }
-//  }
-//  else if ( strTopic ==  zone3_topic ) {
-//    if (command == "ON") {
-//      digitalWrite(ZONE_3, LOW);
-//    } else {
-//      digitalWrite(ZONE_3, HIGH);
-//    }
-//  }
+  //  if (strTopic == pooltopup_topic) {
+  //
+  //    if (command == "OPEN") {
+  //      digitalWrite(SWIMMING_POOL, LOW);
+  //    } else {
+  //      digitalWrite(SWIMMING_POOL, HIGH);
+  //    }
+  //  }
+  //  else if ( strTopic ==  zone1_topic) {
+  //    if (command == "ON") {
+  //      digitalWrite(ZONE_1, LOW);
+  //    } else {
+  //      digitalWrite(ZONE_1, HIGH);
+  //    }
+  //  }
+  //  else if ( strTopic ==  zone2_topic) {
+  //    if (command == "ON") {
+  //      digitalWrite(ZONE_2, LOW);
+  //    } else {
+  //      digitalWrite(ZONE_2, HIGH);
+  //    }
+  //  }
+  //  else if ( strTopic ==  zone3_topic ) {
+  //    if (command == "ON") {
+  //      digitalWrite(ZONE_3, LOW);
+  //    } else {
+  //      digitalWrite(ZONE_3, HIGH);
+  //    }
+  //  }
 }
 
 void setup_wifi() {
