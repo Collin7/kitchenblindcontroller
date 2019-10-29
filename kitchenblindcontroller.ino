@@ -128,12 +128,14 @@ void openBlind() {
   didPublishState = false;
   digitalWrite(IN_1, HIGH);
   digitalWrite(IN_2, LOW);
+  delay(2000);
 }
 
 void closeBlind() {
   didPublishState = false;
   digitalWrite(IN_1, LOW);
   digitalWrite(IN_2, HIGH);
+  delay(2000);
 }
 
 void stopBlind() {
