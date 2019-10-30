@@ -128,14 +128,14 @@ void openBlind() {
   didPublishState = false;
   digitalWrite(IN_1, HIGH);
   digitalWrite(IN_2, LOW);
-  delay(2000);
+  delay(2000);  // This delay to to allow the blind to release the limit switch else the low state calls stopmotor before it can start moving
 }
 
 void closeBlind() {
   didPublishState = false;
   digitalWrite(IN_1, LOW);
   digitalWrite(IN_2, HIGH);
-  delay(2000);
+  delay(2000);  // This delay to to allow the blind to release the limit switch else the low state calls stopmotor before it can start moving
 }
 
 void stopBlind() {
@@ -153,10 +153,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (strTopic == operateblind_topic) {
     if (command == "OPEN") {
       openBlind();
-      delay(1000); // This delay to to allow the blind to release the limit switch else the low state calls stopmotor before it can start moving
     } else if (command == "CLOSE") {
       closeBlind();
-      delay(1000);
     }
   }
 }
