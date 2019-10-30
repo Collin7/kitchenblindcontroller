@@ -6,10 +6,10 @@
 #include <SimpleTimer.h>
 
 const char* host = "Kitchen Blind Controller";
-const char* ssid = "Morpheus";
-const char* password = "b5eea63f65";
-const char* mqtt_user = "CDW-SmartHouse";
-const char* mqtt_pass = "!M0rpheus";
+const char* ssid = "SSID HERE";
+const char* password = "WIFI PASSWORD HERE";
+const char* mqtt_user = "MQTT USERNAME";
+const char* mqtt_pass = "MQTT PASSWORD HERE";
 
 #define mqtt_server "192.168.0.3"
 #define operateblind_topic "blinds/kitchen/action"
