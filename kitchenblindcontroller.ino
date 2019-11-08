@@ -9,7 +9,7 @@ const char* host = "Kitchen Blind Controller";
 const char* ssid = "SSID HERE";
 const char* password = "WIFI PASSWORD HERE";
 const char* mqtt_user = "MQTT USERNAME";
-const char* mqtt_pass = "MQTT PASSWORD HERE";
+const char* mqtt_pass = "MQTT PASSWORD";
 
 #define mqtt_server "192.168.0.3"
 #define operateblind_topic "blinds/kitchen/action"
@@ -87,11 +87,10 @@ void buttonPressHandler() {
   // Get the updated value :
   int value1 = bouncer1.read();
   int value2 = bouncer2.read();
+
   if (digitalRead(OPEN_BUTTON) == LOW) {
-    Serial.println("Opening the blind");
     openBlind();
   } else if (digitalRead(CLOSE_BUTTON) == LOW) {
-    Serial.println("Closing the blind");
     closeBlind();
   }
 }
@@ -125,17 +124,21 @@ void stateCheckin() {
 }
 
 void openBlind() {
-  didPublishState = false;
-  digitalWrite(IN_1, HIGH);
-  digitalWrite(IN_2, LOW);
-  delay(2000);  // This delay to to allow the blind to release the limit switch else the low state calls stopmotor before it can start moving
+  if (digitalRead(BOTTOM_LIMIT_SWITCH) == HIGH) { //Make sure blind is currently closed
+    didPublishState = false;
+    digitalWrite(IN_1, HIGH);
+    digitalWrite(IN_2, LOW);
+    delay(2000);  // This delay to to allow the blind to release the limit switch else the low state calls stopmotor before it can start moving
+  }
 }
 
 void closeBlind() {
-  didPublishState = false;
-  digitalWrite(IN_1, LOW);
-  digitalWrite(IN_2, HIGH);
-  delay(2000);  // This delay to to allow the blind to release the limit switch else the low state calls stopmotor before it can start moving
+  if (digitalRead(TOP_LIMIT_SWITCH) == HIGH) { //Make sure blind is currently open before closing it
+    didPublishState = false;
+    digitalWrite(IN_1, LOW);
+    digitalWrite(IN_2, HIGH);
+    delay(2000);  // This delay to to allow the blind to release the limit switch else the low state calls stopmotor before it can start moving
+  }
 }
 
 void stopBlind() {
