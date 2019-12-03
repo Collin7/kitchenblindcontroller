@@ -1,3 +1,4 @@
+#include <Credentials.h>
 #include <Bounce2.h>
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
@@ -6,24 +7,18 @@
 #include <SimpleTimer.h>
 
 const char* host = "Kitchen Blind Controller";
-const char* ssid = "SSID HERE";
-const char* password = "WIFI PASSWORD HERE";
-const char* mqtt_user = "MQTT USERNAME";
-const char* mqtt_pass = "MQTT PASSWORD";
-
-#define mqtt_server "192.168.0.3"
 #define operateblind_topic "blinds/kitchen/action"
 
 //This can be used to output the date the code was compiled
 const char compile_date[] = __DATE__ " " __TIME__;
 
 //Define Pins
-const int CLOSE_BUTTON = 0; //D3
-const int OPEN_BUTTON = 2; //D4
-const int TOP_LIMIT_SWITCH = 14; //D5
+const int CLOSE_BUTTON = 0;         //D3
+const int OPEN_BUTTON = 2;          //D4
+const int TOP_LIMIT_SWITCH = 14;    //D5
 const int BOTTOM_LIMIT_SWITCH = 12; //D6
-const int IN_1 = 5; //D1
-const int IN_2 = 4; //D2
+const int IN_1 = 5;                 //D1
+const int IN_2 = 4;                 //D2
 
 String strTopic;
 String strPayload;
@@ -58,7 +53,7 @@ void setup() {
 
   setup_wifi();
 
-  client.setServer(mqtt_server, 1883);
+  client.setServer(MQTT_SERVER, MQTT_PORT);
   client.setCallback(callback); //callback is the function that gets called for a topic sub
 
   ArduinoOTA.setHostname("Kitchen Blind Controller");
@@ -167,10 +162,10 @@ void setup_wifi() {
   delay(10);
   Serial.println();
   Serial.print("Connecting to ");
-  Serial.println(ssid);
+  Serial.println(WIFI_SSID);
 
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -188,7 +183,7 @@ void setup_wifi() {
 void reconnect() {
   //Reconnect to Wifi and to MQTT. If Wifi is already connected, then autoconnect doesn't do anything.
   Serial.print("Attempting MQTT connection...");
-  if (client.connect(host, mqtt_user, mqtt_pass)) {
+  if (client.connect(host, MQTT_USERNAME, MQTT_PASSWORD)) {
     Serial.println("connected");
     client.subscribe("blinds/kitchen/action");
   } else {
