@@ -1,5 +1,5 @@
+#include <EasyButton.h>
 #include <Credentials.h>
-#include <Bounce2.h>
 #include <ESP8266WiFi.h>
 #include <ArduinoOTA.h>
 #include <PubSubClient.h>
@@ -8,13 +8,13 @@
 
 const char* host = "Kitchen Blind Controller";
 #define operateblind_topic "blinds/kitchen/action"
+#define CLOSE_BUTTON 0 //D3
+#define OPEN_BUTTON 2  //D4
 
 //This can be used to output the date the code was compiled
 const char compile_date[] = __DATE__ " " __TIME__;
 
 //Define Pins
-const int CLOSE_BUTTON = 0;         //D3
-const int OPEN_BUTTON = 2;          //D4
 const int TOP_LIMIT_SWITCH = 14;    //D5
 const int BOTTOM_LIMIT_SWITCH = 12; //D6
 const int IN_1 = 5;                 //D1
@@ -27,25 +27,22 @@ bool didPublishState = false;
 //Initialize Objects
 WiFiClient espKitchenBlindController;
 PubSubClient client(espKitchenBlindController);
-Bounce  bouncer1  = Bounce();
-Bounce  bouncer2  = Bounce();
 SimpleTimer timer;
+EasyButton closeButton(CLOSE_BUTTON);
+EasyButton openButton(OPEN_BUTTON);
 
 void setup() {
   Serial.begin(115200);
 
   pinMode(IN_1, OUTPUT);
   pinMode(IN_2, OUTPUT);
-  pinMode(OPEN_BUTTON, INPUT);
-  pinMode(CLOSE_BUTTON, INPUT);
   pinMode(TOP_LIMIT_SWITCH, INPUT_PULLUP);
   pinMode(BOTTOM_LIMIT_SWITCH, INPUT_PULLUP);
 
-  bouncer1.attach(OPEN_BUTTON);
-  bouncer2.attach(CLOSE_BUTTON);
-
-  bouncer1.interval(5);
-  bouncer2.interval(5);
+  closeButton.begin();
+  openButton.begin();
+  closeButton.onPressed(closeButtonPressed);
+  openButton.onPressed(openButtonPressed);
 
   // Set initial rotation direction
   digitalWrite(IN_1, LOW);
@@ -75,19 +72,16 @@ void loop() {
   timer.run();
 }
 
+void closeButtonPressed(){
+  closeBlind();
+}
+
+void openButtonPressed(){
+  openBlind();
+}
 void buttonPressHandler() {
-  bouncer1.update();
-  bouncer2.update();
-
-  // Get the updated value :
-  int value1 = bouncer1.read();
-  int value2 = bouncer2.read();
-
-  if (digitalRead(OPEN_BUTTON) == LOW) {
-    openBlind();
-  } else if (digitalRead(CLOSE_BUTTON) == LOW) {
-    closeBlind();
-  }
+  openButton.read();
+  closeButton.read();
 }
 
 void limitSwitchHandler() {
