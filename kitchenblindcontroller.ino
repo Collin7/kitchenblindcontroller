@@ -8,6 +8,7 @@
 
 const char* host = "Kitchen Blind Controller";
 #define operateblind_topic "blinds/kitchen/action"
+#define restart_topic "blinds/kitchen/restart"
 #define CLOSE_BUTTON 0 //D3
 #define OPEN_BUTTON 2  //D4
 
@@ -72,11 +73,11 @@ void loop() {
   timer.run();
 }
 
-void closeButtonPressed(){
+void closeButtonPressed() {
   closeBlind();
 }
 
-void openButtonPressed(){
+void openButtonPressed() {
   openBlind();
 }
 void buttonPressHandler() {
@@ -148,6 +149,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
     } else if (command == "CLOSE") {
       closeBlind();
     }
+  } else if (strTopic == restart_topic) {
+    restartESP();
   }
 }
 
@@ -179,7 +182,7 @@ void reconnect() {
   Serial.print("Attempting MQTT connection...");
   if (client.connect(host, MQTT_USERNAME, MQTT_PASSWORD)) {
     Serial.println("connected");
-    client.subscribe("blinds/kitchen/action");
+    client.subscribe("blinds/kitchen/#");
   } else {
     Serial.print("failed, rc=");
     Serial.print(client.state());
@@ -187,4 +190,8 @@ void reconnect() {
     // Wait 5 seconds before retrying
     delay(5000);
   }
+}
+
+void restartESP() {
+  ESP.restart();
 }
