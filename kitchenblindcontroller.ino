@@ -184,6 +184,7 @@ void reconnect() {
     Serial.println("connected");
     client.subscribe("blinds/kitchen/#");
   } else {
+    stopBlind();
     Serial.print("failed, rc=");
     Serial.print(client.state());
     Serial.println(" try again in 5 seconds");
