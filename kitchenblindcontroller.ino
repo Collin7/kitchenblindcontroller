@@ -1,3 +1,5 @@
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 #include <EasyButton.h>
 #include <Credentials.h>
 #include <ESP8266WiFi.h>
@@ -6,7 +8,7 @@
 #include <ESP8266SSDP.h>
 #include <SimpleTimer.h>
 
-const char* host = "Kitchen Blind Controller";
+const char* host = "KITCHEN BLIND CONTROLLER";
 #define operateblind_topic "blinds/kitchen/action"
 #define restart_topic "blinds/kitchen/restart"
 #define CLOSE_BUTTON 0 //D3
@@ -20,19 +22,21 @@ const int TOP_LIMIT_SWITCH = 14;    //D5
 const int BOTTOM_LIMIT_SWITCH = 12; //D6
 const int IN_1 = 5;                 //D1
 const int IN_2 = 4;                 //D2
-int motorTimerLimit;
+long motorStartTime;
 
 String strTopic;
 String strPayload;
 bool didPublishState = false;
+bool isMotorRunning = false;
 
 //Initialize Objects
 WiFiClient espKitchenBlindController;
 PubSubClient client(espKitchenBlindController);
 SimpleTimer timer;
-SimpleTimer motorRunningTimer;
 EasyButton closeButton(CLOSE_BUTTON);
 EasyButton openButton(OPEN_BUTTON);
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "za.pool.ntp.org", 7200, 60000);
 
 void setup() {
   Serial.begin(115200);
@@ -59,9 +63,9 @@ void setup() {
   ArduinoOTA.setHostname("Kitchen Blind Controller");
   ArduinoOTA.begin();
 
+  timeClient.begin();
+
   timer.setInterval(90000, stateCheckin); //publish blind state every 1 min
-  motorTimerLimit = motorRunningTimer.setInterval(40000, stopBlind);
-  motorRunningTimer.disable(motorTimerLimit);
 }
 
 void loop() {
@@ -75,7 +79,13 @@ void loop() {
   buttonPressHandler();
   limitSwitchHandler();
   timer.run();
-  motorRunningTimer.run();
+
+  if(isMotorRunning){
+    long timeNow = timeClient.getEpochTime();
+    if(timeNow - motorStartTime >= 30){
+      stopBlind();
+    }
+  }
 }
 
 void closeButtonPressed() {
@@ -119,7 +129,8 @@ void stateCheckin() {
 }
 
 void openBlind() {
-  motorRunningTimer.enable(motorTimerLimit);
+  motorStartTime = timeClient.getEpochTime();
+  isMotorRunning = true;
   if (digitalRead(BOTTOM_LIMIT_SWITCH) == HIGH) { //Make sure blind is currently closed
     didPublishState = false;
     digitalWrite(IN_1, HIGH);
@@ -129,7 +140,8 @@ void openBlind() {
 }
 
 void closeBlind() {
-  motorRunningTimer.enable(motorTimerLimit);
+  motorStartTime = timeClient.getEpochTime();
+  isMotorRunning = true;
   if (digitalRead(TOP_LIMIT_SWITCH) == HIGH) { //Make sure blind is currently open before closing it
     didPublishState = false;
     digitalWrite(IN_1, LOW);
@@ -141,8 +153,7 @@ void closeBlind() {
 void stopBlind() {
   digitalWrite(IN_1, LOW);
   digitalWrite(IN_2, LOW);
-  motorRunningTimer.restartTimer(motorTimerLimit);
-  motorRunningTimer.disable(motorTimerLimit);
+  isMotorRunning = false;
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
