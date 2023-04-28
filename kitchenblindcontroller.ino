@@ -103,6 +103,7 @@ void buttonPressHandler() {
 void limitSwitchHandler() {
   //Blind is open
   if (digitalRead(TOP_LIMIT_SWITCH) == LOW) {
+ Serial.println("Top LIMIT SWITCH STOPPING BLIND");
     stopBlind();
     if (digitalRead(TOP_LIMIT_SWITCH) == LOW && !didPublishState) {
       client.publish("blinds/kitchen/state", "OPEN", true);
@@ -111,6 +112,7 @@ void limitSwitchHandler() {
 
     //Blind is closed
   } else if (digitalRead(BOTTOM_LIMIT_SWITCH) == LOW) {
+    delay(500); // This delay is because the reed switch changes state before the blind is all the way closed
     stopBlind();
     if (digitalRead(BOTTOM_LIMIT_SWITCH) == LOW && !didPublishState) {
       didPublishState = true;
