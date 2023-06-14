@@ -11,17 +11,17 @@
 const char* host = "KITCHEN BLIND CONTROLLER";
 #define operateblind_topic "blinds/kitchen/action"
 #define restart_topic "blinds/kitchen/restart"
-#define CLOSE_BUTTON 0 //D3
-#define OPEN_BUTTON 2  //D4
+#define CLOSE_BUTTON 0  //D3
+#define OPEN_BUTTON 2   //D4
 
 //This can be used to output the date the code was compiled
 const char compile_date[] = __DATE__ " " __TIME__;
 
 //Define Pins
-const int TOP_LIMIT_SWITCH = 14;    //D5
-const int BOTTOM_LIMIT_SWITCH = 12; //D6
-const int IN_1 = 5;                 //D1
-const int IN_2 = 4;                 //D2
+const int TOP_LIMIT_SWITCH = 14;     //D5
+const int BOTTOM_LIMIT_SWITCH = 12;  //D6
+const int IN_1 = 5;                  //D1
+const int IN_2 = 4;                  //D2
 long motorStartTime;
 
 String strTopic;
@@ -58,14 +58,14 @@ void setup() {
   setup_wifi();
 
   client.setServer(MQTT_SERVER, MQTT_PORT);
-  client.setCallback(callback); //callback is the function that gets called for a topic sub
+  client.setCallback(callback);  //callback is the function that gets called for a topic sub
 
   ArduinoOTA.setHostname("Kitchen Blind Controller");
   ArduinoOTA.begin();
 
   timeClient.begin();
 
-  timer.setInterval(90000, stateCheckin); //publish blind state every 1 min
+  timer.setInterval(90000, stateCheckin);  //publish blind state every 1 min
 }
 
 void loop() {
@@ -74,15 +74,16 @@ void loop() {
     Serial.println("Client not connected for some reason");
     reconnect();
   }
-  client.loop(); //the mqtt function that processes MQTT messages
+  client.loop();  //the mqtt function that processes MQTT messages
   ArduinoOTA.handle();
   buttonPressHandler();
   limitSwitchHandler();
   timer.run();
 
-  if(isMotorRunning){
+  if (isMotorRunning) {
     long timeNow = timeClient.getEpochTime();
-    if(timeNow - motorStartTime >= 30){
+    if (timeNow - motorStartTime >= 30) {
+      Serial.println("Getting called in here");
       stopBlind();
     }
   }
@@ -103,7 +104,7 @@ void buttonPressHandler() {
 void limitSwitchHandler() {
   //Blind is open
   if (digitalRead(TOP_LIMIT_SWITCH) == LOW) {
- Serial.println("Top LIMIT SWITCH STOPPING BLIND");
+    Serial.println("Top LIMIT SWITCH STOPPING BLIND");
     stopBlind();
     if (digitalRead(TOP_LIMIT_SWITCH) == LOW && !didPublishState) {
       client.publish("blinds/kitchen/state", "OPEN", true);
@@ -112,7 +113,8 @@ void limitSwitchHandler() {
 
     //Blind is closed
   } else if (digitalRead(BOTTOM_LIMIT_SWITCH) == LOW) {
-    delay(500); // This delay is because the reed switch changes state before the blind is all the way closed
+    delay(500);  // This delay is because the reed switch changes state before the blind is all the way closed
+    Serial.println("Getting called for bottom limit switch low");
     stopBlind();
     if (digitalRead(BOTTOM_LIMIT_SWITCH) == LOW && !didPublishState) {
       didPublishState = true;
@@ -133,7 +135,7 @@ void stateCheckin() {
 void openBlind() {
   motorStartTime = timeClient.getEpochTime();
   isMotorRunning = true;
-  if (digitalRead(BOTTOM_LIMIT_SWITCH) == HIGH) { //Make sure blind is currently closed
+  if (digitalRead(BOTTOM_LIMIT_SWITCH) == HIGH) {  //Make sure blind is currently closed
     didPublishState = false;
     digitalWrite(IN_1, HIGH);
     digitalWrite(IN_2, LOW);
@@ -144,7 +146,7 @@ void openBlind() {
 void closeBlind() {
   motorStartTime = timeClient.getEpochTime();
   isMotorRunning = true;
-  if (digitalRead(TOP_LIMIT_SWITCH) == HIGH) { //Make sure blind is currently open before closing it
+  if (digitalRead(TOP_LIMIT_SWITCH) == HIGH) {  //Make sure blind is currently open before closing it
     didPublishState = false;
     digitalWrite(IN_1, LOW);
     digitalWrite(IN_2, HIGH);
@@ -153,6 +155,7 @@ void closeBlind() {
 }
 
 void stopBlind() {
+  Serial.println("StopBlind method executed");
   digitalWrite(IN_1, LOW);
   digitalWrite(IN_2, LOW);
   isMotorRunning = false;
@@ -170,6 +173,9 @@ void callback(char* topic, byte* payload, unsigned int length) {
       openBlind();
     } else if (command == "CLOSE") {
       closeBlind();
+    } else if (command == "STOP") {
+      client.publish("blinds/kitchen/state", "STOPPED", true);
+      stopBlind();
     }
   } else if (strTopic == restart_topic) {
     restartESP();
