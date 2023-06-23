@@ -8,24 +8,20 @@
 #include <ESP8266SSDP.h>
 #include <SimpleTimer.h>
 
-const char* host = "KITCHEN BLIND CONTROLLER";
-#define operateblind_topic "blinds/kitchen/action"
-#define restart_topic "blinds/kitchen/restart"
-#define CLOSE_BUTTON 0  //D3
-#define OPEN_BUTTON 2   //D4
+const char* DEVICE_NAME = "KITCHEN BLIND CONTROLLER";
 
-//This can be used to output the date the code was compiled
-const char compile_date[] = __DATE__ " " __TIME__;
+const char* operateblind_topic = "blinds/kitchen/action";
+const char* restart_topic = "blinds/kitchen/restart";
 
 //Define Pins
+const int CLOSE_BUTTON = 0;          //D3
+const int OPEN_BUTTON = 2;           //D4
 const int TOP_LIMIT_SWITCH = 14;     //D5
 const int BOTTOM_LIMIT_SWITCH = 12;  //D6
 const int IN_1 = 5;                  //D1
 const int IN_2 = 4;                  //D2
-long motorStartTime;
+long motorStartTime = 0;
 
-String strTopic;
-String strPayload;
 bool didPublishState = false;
 bool isMotorRunning = false;
 
@@ -55,13 +51,9 @@ void setup() {
   digitalWrite(IN_1, LOW);
   digitalWrite(IN_2, LOW);
 
-  setup_wifi();
-
-  client.setServer(MQTT_SERVER, MQTT_PORT);
-  client.setCallback(callback);  //callback is the function that gets called for a topic sub
-
-  ArduinoOTA.setHostname("Kitchen Blind Controller");
-  ArduinoOTA.begin();
+  setupWiFi();
+  setupMQTT();
+  setupOTA();
 
   timeClient.begin();
 
@@ -71,7 +63,6 @@ void setup() {
 void loop() {
   //If MQTT client can't connect to broker, then reconnect
   if (!client.connected()) {
-    Serial.println("Client not connected for some reason");
     reconnect();
   }
   client.loop();  //the mqtt function that processes MQTT messages
@@ -80,10 +71,13 @@ void loop() {
   limitSwitchHandler();
   timer.run();
 
+  checkMotorRuntime();
+}
+
+void checkMotorRuntime() {
   if (isMotorRunning) {
-    long timeNow = timeClient.getEpochTime();
+    unsigned long timeNow = timeClient.getEpochTime();
     if (timeNow - motorStartTime >= 30) {
-      Serial.println("Getting called in here");
       stopBlind();
     }
   }
@@ -164,37 +158,39 @@ void stopBlind() {
 void callback(char* topic, byte* payload, unsigned int length) {
   //Handle mqtt messages received by this NodeMCU
   payload[length] = '\0';
-  strTopic = String((char*)topic);
-  Serial.println("Topic " + strTopic);
-  String command = String((char*)payload);
-  Serial.println("Command " + command);
-  if (strTopic == operateblind_topic) {
-    if (command == "OPEN") {
+  char* command = (char*)payload;
+
+  if (strcmp(topic, operateblind_topic) == 0) {
+    if (strcmp(command, "OPEN") == 0) {
       openBlind();
-    } else if (command == "CLOSE") {
+    } else if (strcmp(command, "CLOSE") == 0) {
       closeBlind();
-    } else if (command == "STOP") {
+    } else if (strcmp(command, "STOP") == 0) {
       client.publish("blinds/kitchen/state", "STOPPED", true);
       stopBlind();
     }
-  } else if (strTopic == restart_topic) {
+  } else if (strcmp(topic, restart_topic) == 0) {
     restartESP();
   }
 }
 
-void setup_wifi() {
+void setupWiFi() {
 
-  delay(10);
-  Serial.println();
   Serial.print("Connecting to ");
   Serial.println(WIFI_SSID);
 
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
+  unsigned long startTime = millis();
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+
+    // Timeout if connection takes to long (15 seconds)
+    if (millis() - startTime > 15000) {
+      restartESP();
+    }
   }
 
   Serial.println("");
@@ -205,19 +201,41 @@ void setup_wifi() {
   Serial.println(WiFi.macAddress());
 }
 
-void reconnect() {
-  //Reconnect to Wifi and to MQTT. If Wifi is already connected, then autoconnect doesn't do anything.
-  Serial.print("Attempting MQTT connection...");
-  if (client.connect(host, MQTT_USERNAME, MQTT_PASSWORD)) {
-    Serial.println("connected");
-    client.subscribe("blinds/kitchen/#");
+void setupMQTT() {
+  client.setServer(MQTT_SERVER, MQTT_PORT);
+  client.setCallback(callback);  // callback is the function that gets called for a topic subscription
+
+  Serial.println("Attempting MQTT connection...");
+  if (client.connect(DEVICE_NAME, MQTT_USERNAME, MQTT_PASSWORD)) {
+    Serial.println("Connected to MQTT broker");
+    subscribeMQTTTopics();
   } else {
-    stopBlind();
-    Serial.print("failed, rc=");
-    Serial.print(client.state());
-    Serial.println(" try again in 5 seconds");
-    // Wait 5 seconds before retrying
-    delay(5000);
+    Serial.print("Failed to connect to MQTT broker. RC=");
+    Serial.println(client.state());
+    Serial.println("Restarting ESP...");
+    restartESP();
+  }
+}
+
+void subscribeMQTTTopics() {
+  client.subscribe("blinds/kitchen/#");
+}
+
+void setupOTA() {
+  ArduinoOTA.setHostname(DEVICE_NAME);
+  ArduinoOTA.begin();
+}
+
+void reconnect() {
+
+  // Reconnect to WiFi and MQTT
+  if (WiFi.status() != WL_CONNECTED) {
+    setupWiFi();
+  }
+
+  // Check if MQTT connection is not established
+  if (!client.connected()) {
+    setupMQTT();
   }
 }
 
