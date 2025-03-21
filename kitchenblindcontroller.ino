@@ -14,8 +14,8 @@ const char* operateblind_topic = "blinds/kitchen/action";
 const char* restart_topic = "blinds/kitchen/restart";
 
 //Define Pins
-const int CLOSE_BUTTON = 0;          //D3
-const int OPEN_BUTTON = 2;           //D4
+const int CLOSE_BUTTON = 13;          //D7
+const int OPEN_BUTTON = 0;          //D3
 const int TOP_LIMIT_SWITCH = 14;     //D5
 const int BOTTOM_LIMIT_SWITCH = 12;  //D6
 const int IN_1 = 5;                  //D1
@@ -42,8 +42,9 @@ void setup() {
   pinMode(TOP_LIMIT_SWITCH, INPUT_PULLUP);
   pinMode(BOTTOM_LIMIT_SWITCH, INPUT_PULLUP);
 
-  closeButton.begin();
   openButton.begin();
+  closeButton.begin();
+
   closeButton.onPressed(closeButtonPressed);
   openButton.onPressed(openButtonPressed);
 
